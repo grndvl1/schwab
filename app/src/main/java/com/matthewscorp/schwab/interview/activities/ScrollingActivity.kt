@@ -2,6 +2,7 @@ package com.matthewscorp.schwab.interview.activities
 
 import android.arch.lifecycle.Observer
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.support.design.widget.Snackbar
 import android.support.v7.app.AppCompatActivity
@@ -17,8 +18,10 @@ import kotlinx.android.synthetic.main.activity_scrolling.*
 import kotlinx.android.synthetic.main.content_scrolling.*
 import org.koin.android.viewmodel.ext.android.viewModel
 import android.text.InputType
-
-
+import android.widget.TextView
+import com.matthewscorp.schwab.interview.utils.formatWithHtml
+import android.support.v7.widget.DividerItemDecoration
+import android.text.method.LinkMovementMethod
 
 class ScrollingActivity : AppCompatActivity() {
 
@@ -37,6 +40,7 @@ class ScrollingActivity : AppCompatActivity() {
                     pizzaSetViewModel.init(input.toString(), "41.6271023,-88.2355845")
                 }.show()
         }
+        rv_scrolling_activity.addItemDecoration(DividerItemDecoration(this, DividerItemDecoration.VERTICAL))
 
         // Grab the data now, DI with ViewModels
         val pizzaData = pizzaSetViewModel.getPizzaData()
@@ -51,8 +55,7 @@ class ScrollingActivity : AppCompatActivity() {
                 Status.SUCCESS -> {
                     resource.data?.let {
                         bindViews(it)
-                        val adapter = MyPizzaAdapter(it.resources)
-                        rv_scrolling_activity.adapter = adapter
+                        rv_scrolling_activity.adapter = MyPizzaAdapter(it.resources)
                         pizzaData.removeObservers(this)
                     }
                 }
@@ -101,14 +104,27 @@ class ScrollingActivity : AppCompatActivity() {
 
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
             val item = items.get(position)
+            holder.nameView.text = item.name
+            holder.distanceView.text = "Distance: 13mi"
+            holder.addressView.text = item.Address.formattedAddress
+            holder.phoneView.text = item.PhoneNumber
+            holder.urlView.text = "<a href='${item.Website}'>Company Website</a>".formatWithHtml()
+            holder.urlView.setOnClickListener{
+                val intent = Intent(Intent.ACTION_VIEW)
+                intent.setData(Uri.parse(item.Website))
+                startActivity(intent)
+            }
             holder.itemView.setOnClickListener{
-                startActivity(Intent())
+                //startActivity(Intent())
             }
         }
 
-
         inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-
+            var nameView: TextView = itemView.findViewById(R.id.tv_activity_scrolling_name)
+            var distanceView: TextView = itemView.findViewById(R.id.tv_activity_scrolling_distance)
+            var addressView: TextView = itemView.findViewById(R.id.tv_activity_scrolling_address)
+            var phoneView:TextView = itemView.findViewById(R.id.tv_activity_scrolling_phone)
+            var urlView: TextView = itemView.findViewById(R.id.tv_activity_scrolling_url)
         }
     }
 
