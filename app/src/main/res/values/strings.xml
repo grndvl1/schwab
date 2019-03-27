@@ -1,9 +1,10 @@
 <resources>
-    <string name="app_name">Schwab Map Search</string>
+    <string name="app_name">Schwab Search</string>
     <string name="action_settings">Settings</string>
     <string name="submit">Submit</string>
     <string name="enter_search">Enter Search</string>
     <string name="enter_search_content">type in item you are searching for, single word only</string>
     <string name="search_for_hint">Search for \'Pizza\'</string>
     <string name="blank"/>
+    <string name="title_activity_detail">DetailActivity</string>
 </resources>

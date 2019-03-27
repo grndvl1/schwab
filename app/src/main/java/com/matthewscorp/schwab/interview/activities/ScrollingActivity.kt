@@ -1,7 +1,11 @@
 package com.matthewscorp.schwab.interview.activities
 
+import android.annotation.SuppressLint
 import android.arch.lifecycle.Observer
+import android.content.Context
 import android.content.Intent
+import android.location.Location
+import android.location.LocationListener
 import android.net.Uri
 import android.os.Bundle
 import android.support.design.widget.Snackbar
@@ -10,8 +14,7 @@ import android.support.v7.widget.RecyclerView
 import android.view.*
 import com.afollestad.materialdialogs.MaterialDialog
 import com.matthewscorp.schwab.interview.R
-import com.matthewscorp.schwab.interview.data.PizzaList
-import com.matthewscorp.schwab.interview.data.PizzaSet
+import com.matthewscorp.schwab.interview.data.PizzaPlaces
 import com.matthewscorp.schwab.interview.data.Status
 import com.matthewscorp.schwab.interview.viewmodels.PizzaViewModel
 import kotlinx.android.synthetic.main.activity_scrolling.*
@@ -21,24 +24,52 @@ import android.text.InputType
 import android.widget.TextView
 import com.matthewscorp.schwab.interview.utils.formatWithHtml
 import android.support.v7.widget.DividerItemDecoration
-import android.text.method.LinkMovementMethod
+import android.util.Log
+import com.google.android.gms.common.ConnectionResult
+import com.google.android.gms.common.api.GoogleApiClient
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationServices
+import android.widget.Toast
+import com.google.android.gms.common.GooglePlayServicesUtil
+import android.app.Activity
 
-class ScrollingActivity : AppCompatActivity() {
 
+class ScrollingActivity : AppCompatActivity(), GoogleApiClient.ConnectionCallbacks,
+    GoogleApiClient.OnConnectionFailedListener, LocationListener {
+
+    private val TAG: String = "ScrollActivity"
     private val pizzaSetViewModel: PizzaViewModel by viewModel()
+    private var mGoogleApiClient: GoogleApiClient? = null
+    //private var mLocationRequest: LocationRequest? = null
+    private var locationString: String = "41.6271023,-88.2355845"
+    private var mLastLocation: Location? = null
 
+
+    @SuppressLint("MissingPermission")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_scrolling)
         setSupportActionBar(toolbar)
+        if (checkGooglePlayServices()) {
+            mGoogleApiClient = GoogleApiClient.Builder(this)
+                .addApi(LocationServices.API)
+                .addConnectionCallbacks(this)
+                .addOnConnectionFailedListener(this)
+                .build()
+        }
         fab.setOnClickListener { _ ->
             MaterialDialog.Builder(this)
                 .title(R.string.enter_search)
                 .content(R.string.enter_search_content)
                 .inputType(InputType.TYPE_CLASS_TEXT)
                 .input(R.string.search_for_hint, R.string.blank) { _, input ->
-                    pizzaSetViewModel.init(input.toString(), "41.6271023,-88.2355845")
+                    pizzaSetViewModel.init(input.toString(), locationString)
                 }.show()
+
+            mLastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
+            mLastLocation?.let {
+                locationString = "${it.latitude},${it.longitude}"
+            }
         }
         rv_scrolling_activity.addItemDecoration(DividerItemDecoration(this, DividerItemDecoration.VERTICAL))
 
@@ -54,8 +85,7 @@ class ScrollingActivity : AppCompatActivity() {
                 }
                 Status.SUCCESS -> {
                     resource.data?.let {
-                        bindViews(it)
-                        rv_scrolling_activity.adapter = MyPizzaAdapter(it.resources)
+                        rv_scrolling_activity.adapter = MyPizzaAdapter(this@ScrollingActivity, it.resources)
                         pizzaData.removeObservers(this)
                     }
                 }
@@ -63,8 +93,16 @@ class ScrollingActivity : AppCompatActivity() {
         })
     }
 
-    private fun bindViews(data: PizzaSet) {
+    override fun onStart() {
+        super.onStart()
+        // connect to location client
+        mGoogleApiClient?.connect()
+    }
 
+    override fun onStop() {
+        // Disconnect from location client
+        mGoogleApiClient?.disconnect()
+        super.onStop()
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -84,7 +122,7 @@ class ScrollingActivity : AppCompatActivity() {
         }
     }
 
-    internal inner class MyPizzaAdapter(private val items: List<PizzaList>) : RecyclerView.Adapter<MyPizzaAdapter.ViewHolder>() {
+    internal inner class MyPizzaAdapter(private val context: Context, private val items: List<PizzaPlaces>) : RecyclerView.Adapter<MyPizzaAdapter.ViewHolder>() {
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
             val v = LayoutInflater.from(parent.context).inflate(R.layout.row_scrolling_activity_list, parent, false)
             return ViewHolder(v)
@@ -105,7 +143,7 @@ class ScrollingActivity : AppCompatActivity() {
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
             val item = items.get(position)
             holder.nameView.text = item.name
-            holder.distanceView.text = "Distance: 13mi"
+            holder.distanceView.text = "Distance: 1.5mi"
             holder.addressView.text = item.Address.formattedAddress
             holder.phoneView.text = item.PhoneNumber
             holder.urlView.text = "<a href='${item.Website}'>Company Website</a>".formatWithHtml()
@@ -115,7 +153,7 @@ class ScrollingActivity : AppCompatActivity() {
                 startActivity(intent)
             }
             holder.itemView.setOnClickListener{
-                //startActivity(Intent())
+                startActivity(DetailActivity.getStartIntent(context, item))
             }
         }
 
@@ -129,4 +167,80 @@ class ScrollingActivity : AppCompatActivity() {
     }
 
 
+    /// Location services methods
+    @SuppressLint("MissingPermission")
+    override fun onConnected(bundle: Bundle?) {
+        mLastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
+        mLastLocation?.let {
+            locationString = "${it.latitude},${it.longitude}"
+        }
+    }
+
+    override fun onConnectionSuspended(error: Int) {
+        Log.d(TAG, "GoogleApiClient connection suspended")
+    }
+
+    override fun onConnectionFailed(resultFailed: ConnectionResult) {
+        Log.d(TAG, "GoogleApiClient connection failed")
+    }
+
+    override fun onLocationChanged(location: Location?) {
+        Log.d(TAG, "Location changed $location")
+        location?.let {
+            locationString = "${it.latitude},${it.longitude}"
+        }
+    }
+
+    override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {
+    }
+
+    override fun onProviderEnabled(provider: String?) {
+    }
+
+    override fun onProviderDisabled(provider: String?) {
+    }
+
+    private fun checkGooglePlayServices(): Boolean {
+
+        val checkGooglePlayServices = GooglePlayServicesUtil
+            .isGooglePlayServicesAvailable(this)
+        if (checkGooglePlayServices != ConnectionResult.SUCCESS) {
+            /*
+			* google play services is missing or update is required
+			*  return code could be
+			* SUCCESS,
+			* SERVICE_MISSING, SERVICE_VERSION_UPDATE_REQUIRED,
+			* SERVICE_DISABLED, SERVICE_INVALID.
+			*/
+            GooglePlayServicesUtil.getErrorDialog(
+                checkGooglePlayServices,
+                this, 200
+            ).show()
+
+            return false
+        }
+
+        return true
+
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (requestCode == 200) {
+
+            if (resultCode == Activity.RESULT_OK) {
+                mGoogleApiClient?.let {
+                    // Make sure the app is not already connected or attempting to connect
+                    if (it.isConnecting.not() && it.isConnected.not()) {
+                        mGoogleApiClient?.connect()
+                    }
+                }
+            } else if (resultCode == Activity.RESULT_CANCELED) {
+                Toast.makeText(
+                    this, "Google Play Services must be installed.",
+                    Toast.LENGTH_SHORT
+                ).show()
+                finish()
+            }
+        }
+    }
 }
