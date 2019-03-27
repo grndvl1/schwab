@@ -5,7 +5,6 @@ import android.arch.lifecycle.Observer
 import android.content.Context
 import android.content.Intent
 import android.location.Location
-import android.location.LocationListener
 import android.net.Uri
 import android.os.Bundle
 import android.support.design.widget.Snackbar
@@ -27,23 +26,24 @@ import android.support.v7.widget.DividerItemDecoration
 import android.util.Log
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.api.GoogleApiClient
-import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationServices
 import android.widget.Toast
 import com.google.android.gms.common.GooglePlayServicesUtil
 import android.app.Activity
-
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationListener
+import com.google.android.gms.location.LocationRequest
 
 class ScrollingActivity : AppCompatActivity(), GoogleApiClient.ConnectionCallbacks,
     GoogleApiClient.OnConnectionFailedListener, LocationListener {
 
     private val TAG: String = "ScrollActivity"
     private val pizzaSetViewModel: PizzaViewModel by viewModel()
-    private var mGoogleApiClient: GoogleApiClient? = null
-    //private var mLocationRequest: LocationRequest? = null
+    private lateinit var mGoogleApiClient: GoogleApiClient
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
     private var locationString: String = "41.6271023,-88.2355845"
     private var mLastLocation: Location? = null
-
+    private lateinit var mLocationRequest: LocationRequest
 
     @SuppressLint("MissingPermission")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -56,6 +56,11 @@ class ScrollingActivity : AppCompatActivity(), GoogleApiClient.ConnectionCallbac
                 .addConnectionCallbacks(this)
                 .addOnConnectionFailedListener(this)
                 .build()
+            fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+            mLocationRequest = LocationRequest.create()
+                .setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY)
+                .setInterval(10 * 1000)        // 10 seconds, in milliseconds
+                .setFastestInterval(1 * 1000); // 1 second, in milliseconds
         }
         fab.setOnClickListener { _ ->
             MaterialDialog.Builder(this)
@@ -66,9 +71,15 @@ class ScrollingActivity : AppCompatActivity(), GoogleApiClient.ConnectionCallbac
                     pizzaSetViewModel.init(input.toString(), locationString)
                 }.show()
 
-            mLastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
-            mLastLocation?.let {
-                locationString = "${it.latitude},${it.longitude}"
+            if (mGoogleApiClient.isConnected()) {
+                fusedLocationClient.lastLocation
+                    .addOnSuccessListener { location: Location? ->
+                        location?.let {
+                            locationString = "${it.latitude},${it.longitude}"
+                        } ?: kotlin.run {
+                            LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this)
+                        }
+                    }
             }
         }
         rv_scrolling_activity.addItemDecoration(DividerItemDecoration(this, DividerItemDecoration.VERTICAL))
@@ -93,16 +104,19 @@ class ScrollingActivity : AppCompatActivity(), GoogleApiClient.ConnectionCallbac
         })
     }
 
-    override fun onStart() {
-        super.onStart()
+    override fun onResume() {
+        super.onResume()
         // connect to location client
-        mGoogleApiClient?.connect()
+        mGoogleApiClient.connect()
     }
 
-    override fun onStop() {
+    override fun onPause() {
         // Disconnect from location client
-        mGoogleApiClient?.disconnect()
-        super.onStop()
+        if (mGoogleApiClient.isConnected) {
+            LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient, this)
+            mGoogleApiClient.disconnect()
+        }
+        super.onPause()
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -149,7 +163,7 @@ class ScrollingActivity : AppCompatActivity(), GoogleApiClient.ConnectionCallbac
             holder.urlView.text = "<a href='${item.Website}'>Company Website</a>".formatWithHtml()
             holder.urlView.setOnClickListener{
                 val intent = Intent(Intent.ACTION_VIEW)
-                intent.setData(Uri.parse(item.Website))
+                intent.data = Uri.parse(item.Website)
                 startActivity(intent)
             }
             holder.itemView.setOnClickListener{
@@ -173,6 +187,8 @@ class ScrollingActivity : AppCompatActivity(), GoogleApiClient.ConnectionCallbac
         mLastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
         mLastLocation?.let {
             locationString = "${it.latitude},${it.longitude}"
+        } ?: kotlin.run {
+            LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this)
         }
     }
 
@@ -189,15 +205,6 @@ class ScrollingActivity : AppCompatActivity(), GoogleApiClient.ConnectionCallbac
         location?.let {
             locationString = "${it.latitude},${it.longitude}"
         }
-    }
-
-    override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {
-    }
-
-    override fun onProviderEnabled(provider: String?) {
-    }
-
-    override fun onProviderDisabled(provider: String?) {
     }
 
     private fun checkGooglePlayServices(): Boolean {

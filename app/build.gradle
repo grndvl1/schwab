@@ -30,7 +30,6 @@ dependencies {
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlin_coroutines"
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:$kotlin_coroutines"
 
-
     implementation "com.android.support:appcompat-v7:$supportVersion"
     implementation "com.android.support:design:$supportVersion"
     implementation "com.android.support:recyclerview-v7:$supportVersion"
@@ -64,6 +63,11 @@ dependencies {
 
     // test stuff
     testImplementation 'junit:junit:4.12'
+    testImplementation "org.koin:koin-android-architecture:0.9.1"
+    testImplementation 'org.mockito:mockito-core:2.22.0'
+    testImplementation "org.koin:koin-test:$koin"
+    testImplementation "android.arch.core:core-testing:$archLifecycleVersion"
+
     androidTestImplementation 'com.android.support.test:runner:1.0.2'
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
 }
