@@ -28,6 +28,8 @@ class PizzaRepositories {
                         repo?.resourceSets?.let{ listItems->
                             if (listItems.isNotEmpty() && listItems[0].estimatedTotal > 0) {
                                 data.value = Resource.success(listItems[0]) // only want the first set
+                            } else {
+                                data.value = Resource.error("Zero data items")
                             }
                         }
                     }
