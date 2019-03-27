@@ -71,13 +71,13 @@ class ScrollingActivity : AppCompatActivity(), GoogleApiClient.ConnectionCallbac
                     pizzaSetViewModel.init(input.toString(), locationString)
                 }.show()
 
-            if (mGoogleApiClient.isConnected()) {
+            if (!mGoogleApiClient.isConnecting && mGoogleApiClient.isConnected) {
                 fusedLocationClient.lastLocation
                     .addOnSuccessListener { location: Location? ->
                         location?.let {
                             locationString = "${it.latitude},${it.longitude}"
                         } ?: kotlin.run {
-                            LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this)
+                            //LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this)
                         }
                     }
             }
