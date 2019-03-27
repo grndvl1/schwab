@@ -7,6 +7,7 @@ import android.support.design.widget.Snackbar
 import android.support.v7.app.AppCompatActivity
 import android.support.v7.widget.RecyclerView
 import android.view.*
+import com.afollestad.materialdialogs.MaterialDialog
 import com.matthewscorp.schwab.interview.R
 import com.matthewscorp.schwab.interview.data.PizzaList
 import com.matthewscorp.schwab.interview.data.PizzaSet
@@ -15,6 +16,9 @@ import com.matthewscorp.schwab.interview.viewmodels.PizzaViewModel
 import kotlinx.android.synthetic.main.activity_scrolling.*
 import kotlinx.android.synthetic.main.content_scrolling.*
 import org.koin.android.viewmodel.ext.android.viewModel
+import android.text.InputType
+
+
 
 class ScrollingActivity : AppCompatActivity() {
 
@@ -24,9 +28,14 @@ class ScrollingActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_scrolling)
         setSupportActionBar(toolbar)
-        fab.setOnClickListener { view ->
-            Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                .setAction("Action", null).show()
+        fab.setOnClickListener { _ ->
+            MaterialDialog.Builder(this)
+                .title(R.string.enter_search)
+                .content(R.string.enter_search_content)
+                .inputType(InputType.TYPE_CLASS_TEXT)
+                .input(R.string.search_for_hint, R.string.blank) { _, input ->
+                    pizzaSetViewModel.init(input.toString(), "41.6271023,-88.2355845")
+                }.show()
         }
 
         // Grab the data now, DI with ViewModels
@@ -34,10 +43,10 @@ class ScrollingActivity : AppCompatActivity() {
         pizzaData.observe(this, Observer {resource ->
             when (resource?.status) {
                 Status.LOADING -> {
-                    //show Progress
+                    Snackbar.make(cl_activity_scrolling_main_container, "Loading Data...", Snackbar.LENGTH_SHORT).show()
                 }
                 Status.ERROR -> {
-                    //Show Error
+                    Snackbar.make(cl_activity_scrolling_main_container, "Error in returning Results", Snackbar.LENGTH_LONG).show()
                 }
                 Status.SUCCESS -> {
                     resource.data?.let {
@@ -49,7 +58,6 @@ class ScrollingActivity : AppCompatActivity() {
                 }
             }
         })
-        pizzaSetViewModel.init("pizza", "41.6271023,-88.2355845")
     }
 
     private fun bindViews(data: PizzaSet) {
